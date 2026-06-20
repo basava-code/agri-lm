@@ -1,0 +1,10 @@
+python-dotenv
+langchain-core
+langchain-ollama
+langchain-huggingface
+langchain-openai
+transformers
+torch
+pydantic
+pypdf
+tenacity

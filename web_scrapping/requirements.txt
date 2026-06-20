@@ -1,0 +1,7 @@
+python-dotenv
+pandas
+httpx
+fastapi
+pydantic
+pydantic-settings
+uvicorn
