@@ -4,3 +4,5 @@ transformers
 bitsandbytes
 peft
 trl
+accelerate
+pyyaml

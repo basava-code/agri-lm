@@ -1,0 +1,41 @@
+model:
+  name: "./gemma-2-2b-it-cpt-merged"
+  trust_remote_code: true
+
+dataset:
+  path: "target_book_gemma_qna_dataset_new.jsonl"
+  max_length: 512
+  packing: false
+
+paths:
+  results_dir: "./results"
+  adapter_output_dir: "./gemma-2-2b-it-qna-adapter"
+  merged_output_dir: "./gemma-2-2b-it-qna-merged"
+
+training:
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  warmup_steps: 10
+  logging_steps: 10
+  save_strategy: "epoch"
+  max_grad_norm: 0.3
+  lr_scheduler_type: "cosine"
+  optim: "paged_adamw_8bit"
+  report_to: "none"  # Change to "wandb" if using Weights & Biases
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
