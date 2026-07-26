@@ -19,16 +19,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Constants (Added KccAns)
+# Constants
 REQUIRED_COLS = [
     "BlockName", "Category", "CreatedOn", "Crop", "DistrictName",
-    "KccAns", "QueryText", "QueryType", "Sector", "StateName", "day", "month", "year"
+    "QueryText", "QueryType", "Sector", "StateName", "day", "month", "year"
 ]
 
-# Output Constants (Added Answer after Question)
+# Output Constants 
 OUTPUT_COLS = [
-    "Id", "Question", "Answer", "Crop", "Category", "Sector",
-    "Date & Time", "Location"
+    "Id", "Question", "Crop", "Category", "Sector",
+    "Date & Time", "BlockName", "DistrictName", "StateName"
 ]
 
 # Initialize FastAPI App
@@ -115,23 +115,6 @@ def parse_dates(df: pd.DataFrame) -> pd.Series:
     return dt_final.dt.strftime('%Y-%m-%d %H:%M:%S').fillna("")
 
 
-def construct_location(df: pd.DataFrame) -> pd.Series:
-    """Construct location string vectorially from Block, District, and State."""
-    b = df['BlockName']
-    d = df['DistrictName']
-    s = df['StateName']
-
-    # Vectorized masks to check presence of trailing components
-    b_has_more = (b != '') & ((d != '') | (s != ''))
-    b_str = b + np.where(b_has_more, ', ', '')
-
-    d_has_more = (d != '') & (s != '')
-    d_str = d + np.where(d_has_more, ', ', '')
-
-    # Combine into single location string
-    return b_str + d_str + s
-
-
 def process_csv(input_path: str, output_path: str) -> None:
     """Core ETL pipeline to read, transform, deduplicate, and save the CSV."""
     encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252']
@@ -181,12 +164,15 @@ def process_csv(input_path: str, output_path: str) -> None:
     
     df_out["Id"] = np.arange(1, len(df) + 1)
     df_out["Question"] = df["QueryText"]
-    df_out["Answer"] = df["KccAns"]  # Added the Answer Column mapping here
     df_out["Crop"] = df["Crop"]
     df_out["Category"] = df["Category"]
     df_out["Sector"] = df["Sector"]
     df_out["Date & Time"] = parse_dates(df)
-    df_out["Location"] = construct_location(df)
+    
+    # Keeping location properties as separate columns instead of merging
+    df_out["BlockName"] = df["BlockName"]
+    df_out["DistrictName"] = df["DistrictName"]
+    df_out["StateName"] = df["StateName"]
 
     # Step 5: Output writing (Ensuring correct column order & UTF-8 encoding)
     df_out = df_out[OUTPUT_COLS]
