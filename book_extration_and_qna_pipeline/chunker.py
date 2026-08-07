@@ -15,7 +15,7 @@ import json
 import re
 from pathlib import Path
 from pathlib import Path
-from pypdf import PdfReader
+from langchain_opendataloader_pdf import OpenDataLoaderPDFLoader
 
 
 
@@ -34,41 +34,30 @@ PROJECT_ROOT = find_project_root()
 def clean_page_text(text: str, headers_to_skip: list[str] = None) -> str:
     """Clean common extraction noise from extracted PDF page text.
 
-    This includes removing running headers, trailing printed page numbers,
-    fixing hyphens at line-ends, and removing excessive whitespaces.
+    This includes removing running headers and isolated printed page numbers.
     """
-    # Split text into lines to filter out noise
+    if not text:
+        return ""
     lines = text.split("\n")
     cleaned_lines = []
-
 
     for line in lines:
         stripped = line.strip()
         if not stripped:
             continue
-        
+
         # Skip isolated running page numbers
         if re.match(r"^\d+$", stripped):
             continue
-            
+
         # Skip dynamically provided common headers/footers
         if headers_to_skip:
             if any(header.upper() in stripped.upper() for header in headers_to_skip):
                 continue
-            
+
         cleaned_lines.append(line)
 
-    # Join lines back with spaces
-    text_content = "\n".join(cleaned_lines)
-
-
-    text_content = re.sub(r"(\b\w+)-\n(\w+\b)", r"\1\2", text_content)
-    
-    # Standardise spaces without flattening structural newlines
-    # (replace multiple horizontal spaces with a single space)
-    text_content = re.sub(r"[ \t]+", " ", text_content)
-
-    return text_content.strip()
+    return "\n".join(cleaned_lines).strip()
 
 
 def extract_chapters(
@@ -98,9 +87,21 @@ def extract_chapters(
     with open(toc_json_path, "r", encoding="utf-8") as f:
         chapters_toc = json.load(f)
 
-    print(f"Reading PDF from: {pdf_path}")
-    reader = PdfReader(pdf_path)
-    total_pdf_pages = len(reader.pages)
+    print(f"Reading PDF with OpenDataLoaderPDFLoader from: {pdf_path}")
+    loader = OpenDataLoaderPDFLoader(
+        file_path=str(pdf_path),
+        format="markdown",
+        image_output="embedded",
+        table_method="cluster"
+    )
+    documents = loader.load()
+
+    pages_dict = {}
+    for doc in documents:
+        page_num = doc.metadata.get("page", 1)
+        pages_dict[page_num] = doc.page_content or ""
+
+    total_pdf_pages = max(pages_dict.keys()) if pages_dict else 0
     print(f"Total pages in PDF: {total_pdf_pages}")
 
     processed_chapters = []
@@ -108,19 +109,18 @@ def extract_chapters(
     for key, info in chapters_toc.items():
         start_page, end_page = info["range"]
         title = info["title"]
-        
+
         print(f"Processing chapter chunk: {title} (PDF Pages {start_page} to {end_page})")
-        
+
         chapter_pages_text = []
-        safe_start = max(0, start_page - 1)
-        for page_idx in range(safe_start, end_page):
-            if page_idx >= total_pdf_pages:
-                print(f"Warning: Page index {page_idx + 1} exceeds PDF limit of {total_pdf_pages}")
+        for page_num in range(start_page, end_page + 1):
+            if page_num > total_pdf_pages:
+                print(f"Warning: Page index {page_num} exceeds PDF limit of {total_pdf_pages}")
                 break
-                
-            raw_text = reader.pages[page_idx].extract_text() or ""
+
+            raw_text = pages_dict.get(page_num, "")
             cleaned_text = clean_page_text(raw_text, headers_to_skip=headers_to_skip)
-            
+
             if cleaned_text:
                 chapter_pages_text.append(cleaned_text)
 

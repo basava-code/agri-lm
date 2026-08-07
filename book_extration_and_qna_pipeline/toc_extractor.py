@@ -17,7 +17,7 @@ import json
 import sys
 from pathlib import Path
 from pydantic import BaseModel, Field
-from pypdf import PdfReader
+from langchain_opendataloader_pdf import OpenDataLoaderPDFLoader
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -27,7 +27,10 @@ project_root = current_dir.parent if current_dir.name == "book_data_extractor" e
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from book_data_extractor.llm_factory import get_llm
+try:
+    from book_data_extractor.llm_factory import get_llm
+except ImportError:
+    from llm_factory import get_llm
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage
 from langchain_core.output_parsers import JsonOutputParser
@@ -66,24 +69,33 @@ class RawTOCDataset(BaseModel):
 
 
 def extract_raw_toc_text(pdf_path: Path, toc_pages: list[int]) -> str:
-    """Extracts raw text from the specified 1-indexed PDF page list."""
-    reader = PdfReader(pdf_path)
-    total_pages = len(reader.pages)
-    
+    """Extracts raw markdown text from the specified 1-indexed PDF page list."""
+    loader = OpenDataLoaderPDFLoader(
+        file_path=str(pdf_path),
+        format="markdown",
+        image_output="off",
+        table_method="cluster"
+    )
+    documents = loader.load()
+
+    pages_dict = {}
+    for doc in documents:
+        page_num = doc.metadata.get("page", 1)
+        pages_dict[page_num] = doc.page_content or ""
+
+    total_pages = max(pages_dict.keys()) if pages_dict else 0
     extracted_texts = []
     print(f"Extracting raw TOC text from PDF pages: {toc_pages}")
-    
+
     for page_num in toc_pages:
-        idx = page_num - 1
-        if idx < 0 or idx >= total_pages:
+        if page_num < 1 or page_num > total_pages:
             print(f"Warning: Specified TOC page {page_num} is out of bounds (1 to {total_pages}). Skipping.", file=sys.stderr)
             continue
-            
-        page = reader.pages[idx]
-        raw_text = page.extract_text() or ""
+
+        raw_text = pages_dict.get(page_num, "")
         if raw_text.strip():
             extracted_texts.append(f"--- PDF Page {page_num} ---\n{raw_text.strip()}")
-            
+
     return "\n\n".join(extracted_texts)
 
 
@@ -148,8 +160,15 @@ def extract_and_solve_toc(
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF file not found at: {pdf_path}")
 
-    reader = PdfReader(pdf_path)
-    total_pdf_pages = len(reader.pages)
+    loader = OpenDataLoaderPDFLoader(
+        file_path=str(pdf_path),
+        format="markdown",
+        image_output="off",
+        table_method="cluster"
+    )
+    documents = loader.load()
+    pages_dict = {doc.metadata.get("page", i + 1): doc.page_content or "" for i, doc in enumerate(documents)}
+    total_pdf_pages = max(pages_dict.keys()) if pages_dict else 0
     offset = total_pdf_pages - actual_pages
     
     print(f"Processing target book: {pdf_path.name}")

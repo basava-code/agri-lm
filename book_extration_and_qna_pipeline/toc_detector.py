@@ -12,7 +12,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from pypdf import PdfReader
+from langchain_opendataloader_pdf import OpenDataLoaderPDFLoader
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -23,7 +23,10 @@ project_root = current_dir.parent if current_dir.name == "book_data_extractor" e
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from book_data_extractor.llm_factory import get_llm
+try:
+    from book_data_extractor.llm_factory import get_llm
+except ImportError:
+    from llm_factory import get_llm
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage
 from langchain_core.output_parsers import JsonOutputParser
@@ -52,16 +55,26 @@ def detect_toc(
         raise FileNotFoundError(f"PDF file not found at: {pdf_path}")
 
     print(f"[TOC Detector] Reading first {pages_to_scan} pages of {pdf_path.name}...")
-    reader = PdfReader(pdf_path)
-    total_pages = len(reader.pages)
+    loader = OpenDataLoaderPDFLoader(
+        file_path=str(pdf_path),
+        format="markdown",
+        image_output="off",
+        table_method="cluster"
+    )
+    documents = loader.load()
+
+    pages_dict = {}
+    for doc in documents:
+        page_num = doc.metadata.get("page", 1)
+        pages_dict[page_num] = doc.page_content or ""
+
+    total_pages = max(pages_dict.keys()) if pages_dict else 0
     scan_limit = min(pages_to_scan, total_pages)
 
-    # Extract text from the first N pages using pypdf
+    # Extract text from the first N pages using OpenDataLoaderPDFLoader
     pages_text = []
-    for i in range(scan_limit):
-        page_num = i + 1
-        page = reader.pages[i]
-        text = page.extract_text() or ""
+    for page_num in range(1, scan_limit + 1):
+        text = pages_dict.get(page_num, "")
         if text.strip():
             pages_text.append(f"--- PDF Page {page_num} ---\n{text.strip()}")
 
