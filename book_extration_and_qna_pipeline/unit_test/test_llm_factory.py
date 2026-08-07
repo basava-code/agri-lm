@@ -6,7 +6,10 @@ from dotenv import load_dotenv
 # Add project root to sys.path to run directly
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from book_data_extractor.llm_factory import get_llm
+try:
+    from book_data_extractor.llm_factory import get_llm
+except ImportError:
+    from llm_factory import get_llm
 
 def test_factory():
     print("Testing LLM Factory initialization...")

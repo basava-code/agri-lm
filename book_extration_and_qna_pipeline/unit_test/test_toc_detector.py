@@ -11,19 +11,25 @@ if str(project_root) not in sys.path:
 
 load_dotenv(project_root / ".env")
 
-import fitz
-from book_data_extractor.llm_factory import get_llm
-from book_data_extractor.toc_detector import TOCDetectionResult
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import SystemMessage
+try:
+    from book_data_extractor.llm_factory import get_llm
+    from book_data_extractor.toc_detector import TOCDetectionResult, detect_toc
+except ImportError:
+    from llm_factory import get_llm
+    from toc_detector import TOCDetectionResult, detect_toc
 
 def debug_detect_toc():
     pdf_path = project_root / "target_book.pdf"
     pages_to_scan = 8
-    
+
+    if not pdf_path.exists():
+        print(f"Skipping debug_detect_toc, {pdf_path} does not exist.")
+        return
+
+    import fitz
     doc = fitz.open(pdf_path)
     scan_limit = min(pages_to_scan, len(doc))
-    
+
     pages_text = []
     for i in range(scan_limit):
         page_num = i + 1
@@ -34,8 +40,6 @@ def debug_detect_toc():
 
     full_scan_text = "\n\n".join(pages_text)
 
-    # Let's inspect the system instruction
-    from book_data_extractor.toc_detector import detect_toc
     print("PDF Page 3 Text:")
     print(doc[2].get_text()[:600])
     print("\nPDF Page 4 Text:")
