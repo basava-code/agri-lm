@@ -1,0 +1,10 @@
+python-dotenv
+pandas
+httpx
+fastapi
+pydantic
+pydantic-settings
+uvicorn
+beautifulsoup4
+lxml
+tenacity
