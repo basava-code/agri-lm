@@ -18,12 +18,13 @@ from pathlib import Path
 from langchain_opendataloader_pdf import OpenDataLoaderPDFLoader
 
 try:
-    from book_extraction.table_repair import repair_tables
+    from table_repair import repair_tables
 except ImportError:
     try:
-        from book_extration_and_qna_pipeline.table_repair import repair_tables
+        from book_extraction.table_repair import repair_tables
     except ImportError:
-        from table_repair import repair_tables
+        import table_repair
+        repair_tables = table_repair.repair_tables
 
 
 
