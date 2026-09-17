@@ -1,0 +1,6 @@
+tqdm
+pandas
+ollama
+python-dotenv
+vllm
+openai
