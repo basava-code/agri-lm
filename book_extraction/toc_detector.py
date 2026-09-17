@@ -24,7 +24,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from book_data_extractor.llm_factory import get_llm
+    from llm_factory import get_llm
 except ImportError:
     from llm_factory import get_llm
 from langchain_core.prompts import ChatPromptTemplate
