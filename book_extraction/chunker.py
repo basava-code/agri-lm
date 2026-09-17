@@ -17,6 +17,14 @@ from pathlib import Path
 from pathlib import Path
 from langchain_opendataloader_pdf import OpenDataLoaderPDFLoader
 
+try:
+    from book_extraction.table_repair import repair_tables
+except ImportError:
+    try:
+        from book_extration_and_qna_pipeline.table_repair import repair_tables
+    except ImportError:
+        from table_repair import repair_tables
+
 
 
 def find_project_root() -> Path:
@@ -92,7 +100,7 @@ def extract_chapters(
         file_path=str(pdf_path),
         format="markdown",
         image_output="embedded",
-        table_method="cluster"
+        table_method="default"
     )
     documents = loader.load()
 
@@ -125,7 +133,11 @@ def extract_chapters(
                 chapter_pages_text.append(cleaned_text)
 
         full_chapter_text = "\n\n".join(chapter_pages_text)
-        
+
+        full_chapter_text, repair_stats = repair_tables(full_chapter_text)
+        if any(repair_stats.values()):
+            print(f"  -> Table repair: {repair_stats}")
+
         chapter_data = {
             "key": key,
             "title": title,
@@ -142,12 +154,6 @@ def extract_chapters(
 
     print(f"Successfully processed {len(processed_chapters)} chapters.")
     print(f"Book-specific output saved to: {output_chapters_json}")
-
-
-    legacy_output_path = PROJECT_ROOT / "data" / "processed" / "chapters.json"
-    with open(legacy_output_path, "w", encoding="utf-8") as f:
-        json.dump(processed_chapters, f, indent=4, ensure_ascii=False)
-    print(f"Legacy pipeline duplicate saved to: {legacy_output_path}")
 
     return processed_chapters
 

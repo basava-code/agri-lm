@@ -28,7 +28,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from book_data_extractor.llm_factory import get_llm
+    from llm_factory import get_llm
 except ImportError:
     from llm_factory import get_llm
 from langchain_core.prompts import ChatPromptTemplate
@@ -152,7 +152,8 @@ def extract_and_solve_toc(
     pdf_path: Path,
     actual_pages: int,
     toc_pages: list[int],
-    model_name: str | None = None
+    model_name: str | None = None,
+    page_offset: int | None = None
 ) -> dict[str, dict[str, any]]:
     """Extracts raw TOC text, queries the LLM with structured outputs,
     and programmatically solves the aligned chapter boundaries.
@@ -169,7 +170,10 @@ def extract_and_solve_toc(
     documents = loader.load()
     pages_dict = {doc.metadata.get("page", i + 1): doc.page_content or "" for i, doc in enumerate(documents)}
     total_pdf_pages = max(pages_dict.keys()) if pages_dict else 0
-    offset = total_pdf_pages - actual_pages
+    if page_offset is not None:
+        offset = page_offset
+    else:
+        offset = total_pdf_pages - actual_pages
     
     print(f"Processing target book: {pdf_path.name}")
     print(f"Total PDF pages: {total_pdf_pages}")
@@ -197,6 +201,7 @@ def extract_and_solve_toc(
         "   - Identify all nested sub-sections, topics, or thematic divisions belonging to each chapter. Assign these to the `topics` list within the corresponding `TOCEntry`.\n"
         "   - If a section has no subtopics, set `topics` to an empty list `[]`. Do NOT omit it.\n"
         "   - Ignore standalone headers or entries without page numbers.\n"
+        "   - IGNORE ALL FRONT MATTER (e.g., Foreword, Preface, Acknowledgements). ONLY extract the main body chapters and references that use Arabic numerals (1, 2, 3, etc.). Do NOT extract any entries that use Roman numerals (i, ii, iii, iv, v).\n"
         "   - Use indentation, numbering patterns (e.g., 1.1, 1.2), or visual cues in the raw text to determine parent-child relationships.\n\n"
 
         "2. PAGE NUMBER HANDLING (INTEGER REQUIRED):\n"
